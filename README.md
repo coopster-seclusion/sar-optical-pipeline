@@ -2,6 +2,8 @@
 
 A generalized SAR–optical change detection pipeline for Arctic and sub-Arctic environments. Point it at any area of interest by editing `config.yaml` — no notebook code changes required.
 
+→ [Pipeline workflow diagram](docs/pipeline.md)
+
 **What it does:**
 - Downloads Sentinel-2 SR composites via Google Earth Engine
 - Downloads OPERA RTC-S1 (30 m) SAR backscatter via ASF DAAC
