@@ -1,0 +1,30 @@
+# Core scientific
+numpy
+xarray
+
+# Geospatial stack
+rasterio
+rioxarray
+geopandas
+pyogrio
+shapely
+pyproj
+rasterstats
+
+# EO data access
+earthengine-api
+geemap
+asf_search
+hyp3_sdk
+
+# Analysis
+scikit-image
+scipy
+matplotlib
+
+# Config and credentials
+PyYAML
+python-dotenv
+
+# Jupyter / VSCode notebook support
+ipykernel

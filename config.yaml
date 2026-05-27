@@ -1,0 +1,103 @@
+# sar-optical-pipeline — site configuration
+# Duplicate this file for each study area. All site-specific values live here.
+
+# ---------------------------------------------------------------------------
+# Area of interest
+# ---------------------------------------------------------------------------
+# Provide GeoJSON files (WGS-84) for the region you want to monitor.
+# change_area    : polygon(s) where change is expected
+# stable_reference: nearby stable surface used for noise estimation
+# transect       : optional line geometry for backscatter profiles (notebook 06)
+aoi:
+  change_area: aoi/change_area.geojson
+  stable_reference: aoi/stable_reference.geojson
+  transect: aoi/transect.geojson          # set to null to skip transect plots
+
+# ---------------------------------------------------------------------------
+# Output coordinate reference system
+# ---------------------------------------------------------------------------
+# Set to a projected CRS string (e.g. "EPSG:32622") or leave null to
+# auto-derive the UTM zone from the AOI centroid.
+crs: null
+
+# ---------------------------------------------------------------------------
+# Monitoring epochs
+# ---------------------------------------------------------------------------
+# Define one entry per time window. The baseline_year below must appear here.
+# For Arctic snow-free monitoring use Aug–Sep; adjust for other phenologies.
+epochs:
+  - year: 2016
+    date_start: "2016-08-01"
+    date_end:   "2016-09-30"
+  - year: 2018
+    date_start: "2018-08-01"
+    date_end:   "2018-09-30"
+  - year: 2020
+    date_start: "2020-08-01"
+    date_end:   "2020-09-30"
+  - year: 2022
+    date_start: "2022-08-01"
+    date_end:   "2022-09-30"
+  - year: 2023
+    date_start: "2023-08-01"
+    date_end:   "2023-09-30"
+  - year: 2025
+    date_start: "2025-08-01"
+    date_end:   "2025-09-30"
+
+# ---------------------------------------------------------------------------
+# OPERA RTC-S1  (NASA/ASF Sentinel-1 backscatter at 30 m)
+# ---------------------------------------------------------------------------
+opera:
+  collection: OPERA_L2_RTC-S1_V1
+
+  # REQUIRED — the IW burst ID that covers your AOI.
+  # Find it at search.asf.alaska.edu → Product Type: OPERA-S1 → draw your AOI.
+  # Example: "T010_020043_IW3"
+  burst: null
+
+  orbit: descending       # "ascending" or "descending" — check ASF for your site
+
+  # null = auto-detect polarizations from the first search result.
+  # Arctic/Greenland acquisitions typically yield [HH, HV];
+  # mid-latitude sites typically yield [VV, VH].
+  polarizations: null
+
+# ---------------------------------------------------------------------------
+# Sentinel-2 optical imagery  (via Google Earth Engine)
+# ---------------------------------------------------------------------------
+sentinel2:
+  collection: COPERNICUS/S2_SR_HARMONIZED
+  bands: [B2, B3, B4, B8, B11]   # blue, green, red, NIR, SWIR — required for all indices
+  cloud_pct_max: 20               # scene-level cloud percentage filter
+  scl_mask_classes: [3, 8, 9, 10, 11]  # SCL: cloud shadow, med cloud, high cloud, cirrus, snow/ice
+
+# ---------------------------------------------------------------------------
+# HyP3 on-demand SAR  (ASF Sentinel-1 RTC at 10 m)
+# ---------------------------------------------------------------------------
+hyp3:
+  # Unique prefix for HyP3 job names — avoids collisions with other projects.
+  job_prefix: sar-optical
+
+  resolution: 10          # output pixel spacing in metres (10 or 30)
+  radiometry: gamma0
+  scale: power            # submit in linear power; pipeline converts to dB
+  dem: copernicus
+  speckle_filter: false
+
+# ---------------------------------------------------------------------------
+# Change detection
+# ---------------------------------------------------------------------------
+change_detection:
+  baseline_year: 2016                 # must match a year in epochs above
+  sigma_threshold_multiplier: 2       # change flagged where |delta| > N × sigma
+  speckle_filter: false
+
+# ---------------------------------------------------------------------------
+# Local I/O paths  (used when running outside Google Colab)
+# ---------------------------------------------------------------------------
+# Paths are relative to the repository root. In Colab, pipeline/env.py
+# redirects these to the mounted Google Drive automatically.
+paths:
+  data_dir: data/
+  outputs_dir: outputs/

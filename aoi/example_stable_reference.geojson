@@ -1,0 +1,24 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "example_stable_reference",
+        "description": "Nearby stable surface (bedrock, water, unvegetated) — replace with your actual polygon (WGS-84)"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [13.85, 78.00],
+            [13.95, 78.00],
+            [13.95, 78.05],
+            [13.85, 78.05],
+            [13.85, 78.00]
+          ]
+        ]
+      }
+    }
+  ]
+}

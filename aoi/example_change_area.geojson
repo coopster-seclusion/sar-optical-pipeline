@@ -1,0 +1,24 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "example_change_area",
+        "description": "Replace with your actual study polygon (WGS-84)"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [14.00, 78.00],
+            [14.10, 78.00],
+            [14.10, 78.05],
+            [14.00, 78.05],
+            [14.00, 78.00]
+          ]
+        ]
+      }
+    }
+  ]
+}
