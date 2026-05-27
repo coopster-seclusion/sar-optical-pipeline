@@ -1,8 +1,9 @@
 """OPERA RTC-S1 retrieval and preprocessing via ASF DAAC.
 
 Notebook 02 orchestrates these functions:
-  1. search_epoch()        — query ASF for OPERA products matching burst / date window
-  2. process_epoch()       — download, median-composite, dB-convert, clip, save
+  1. suggest_burst_ids() — discover valid burst IDs for a new AOI (setup helper)
+  2. search_epoch()      — query ASF for OPERA products matching burst / date window
+  3. process_epoch()     — download, median-composite, dB-convert, clip, save
 
 All site-specific parameters come from config.yaml via pipeline.env.load_config().
 """
@@ -27,6 +28,62 @@ log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
+# Burst discovery helper
+# ---------------------------------------------------------------------------
+
+def suggest_burst_ids(
+    aoi_path: str | Path,
+    orbit: str | None = None,
+    *,
+    search_year: int = 2023,
+) -> list[str]:
+    """Return OPERA burst IDs that intersect the AOI.
+
+    Run this once when setting up a new site to find the correct burst ID
+    before populating opera.burst in config.yaml.
+
+    Parameters
+    ----------
+    aoi_path    : path to change-area GeoJSON (WGS-84)
+    orbit       : "ascending" or "descending" to filter; None = return both
+    search_year : calendar year used for the discovery search window (Aug–Sep)
+
+    Returns
+    -------
+    Sorted list of unique burst ID strings, e.g. ["T010_020043_IW3", ...]
+    """
+    gdf = gpd.read_file(aoi_path).to_crs("EPSG:4326")
+    wkt = gdf.union_all().wkt
+
+    kwargs: dict = dict(
+        dataset="OPERA_L2_RTC-S1_V1",
+        intersectsWith=wkt,
+        start=f"{search_year}-08-01",
+        end=f"{search_year}-09-30",
+    )
+    if orbit:
+        kwargs["flightDirection"] = orbit.upper()
+
+    results = asf.search(**kwargs)
+    burst_ids = sorted(
+        {r.properties.get("operaBurstID", "") for r in results} - {""}
+    )
+
+    if not burst_ids:
+        print(
+            "No OPERA results found intersecting this AOI.\n"
+            "Try a different search_year or check that the AOI is in a Sentinel-1 coverage area."
+        )
+    else:
+        print(f"Found {len(burst_ids)} burst ID(s) intersecting your AOI:")
+        for bid in burst_ids:
+            print(f"  {bid}")
+        print("\nCopy the relevant ID into config.yaml → opera.burst")
+
+    return burst_ids
+
+
+# ---------------------------------------------------------------------------
 # ASF search
 # ---------------------------------------------------------------------------
 
@@ -34,7 +91,6 @@ def search_epoch(
     cfg: dict,
     date_start: str,
     date_end: str,
-    session: requests.Session,
 ) -> list:
     """Search ASF DAAC for OPERA RTC-S1 products covering one epoch.
 
@@ -43,7 +99,6 @@ def search_epoch(
     cfg        : parsed config.yaml dict
     date_start : ISO date string "YYYY-MM-DD"
     date_end   : ISO date string "YYYY-MM-DD"
-    session    : authenticated requests.Session (Earthdata credentials)
 
     Returns
     -------
@@ -72,28 +127,45 @@ def search_epoch(
 def _backscatter_urls(result, polarizations: list[str]) -> dict[str, str]:
     """Resolve per-polarization backscatter TIF URLs from an ASF result object.
 
-    Handles both NRT (direct TIF URLs in properties) and reprocessed
-    (HDF5-based) product formats.
+    Handles three OPERA product formats encountered in the wild:
+      NRT (2024+)      — url list contains per-pol TIF URLs directly
+      Reprocessed backlog — additionalUrls contains the backscatter TIFs
+      Fallback         — derive URL from the browse PNG pattern
     """
     props = result.properties
     urls: dict[str, str] = {}
 
-    # NRT format: urls listed directly in the result URLs list
+    # 1. NRT format: url is a list; find per-polarization TIF entries
     for url in props.get("url", []):
         for pol in polarizations:
-            if f"_{pol}.tif" in url:
+            if re.search(rf"_{pol}\.tif$", url, re.IGNORECASE):
                 urls[pol] = url
 
-    # Reprocessed format: construct URL from the HDF5 browse URL pattern
-    if not urls:
-        browse = props.get("browse", "")
+    if urls:
+        return urls
+
+    # 2. Reprocessed format: backscatter TIFs in additionalUrls
+    for url in props.get("additionalUrls") or []:
+        for pol in polarizations:
+            if re.search(rf"_{pol}\.tif$", url, re.IGNORECASE):
+                urls[pol] = url
+
+    if urls:
+        return urls
+
+    # 3. Last resort: derive from browse URL (confirmed pattern in ASF catalog)
+    browse = props.get("browse", "")
+    if browse:
         base = re.sub(r"_browse\.png$", "", browse)
         for pol in polarizations:
             urls[pol] = f"{base}_{pol}.tif"
 
     missing = [p for p in polarizations if p not in urls]
     if missing:
-        raise RuntimeError(f"Could not resolve URLs for polarizations {missing} from {props.get('granuleName')}")
+        raise RuntimeError(
+            f"Could not resolve URLs for polarizations {missing} "
+            f"from {props.get('granuleName', '(unknown)')}"
+        )
     return urls
 
 
@@ -102,7 +174,6 @@ def _resolve_polarizations(cfg: dict, results: list) -> list[str]:
     pols = cfg["opera"].get("polarizations")
     if pols:
         return list(pols)
-    # Auto-detect: inspect filename of first result for HH/HV or VV/VH
     if not results:
         raise RuntimeError("No OPERA results to detect polarizations from")
     granule = results[0].properties.get("granuleName", "")
@@ -197,6 +268,5 @@ def earthdata_session(username: str, password: str) -> requests.Session:
     """Return a requests.Session pre-authenticated for NASA Earthdata."""
     session = requests.Session()
     session.auth = (username, password)
-    # Follow redirects through the URS OAuth flow
     session.get("https://urs.earthdata.nasa.gov", timeout=30)
     return session

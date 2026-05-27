@@ -2,6 +2,13 @@
 # Duplicate this file for each study area. All site-specific values live here.
 
 # ---------------------------------------------------------------------------
+# Site identity
+# ---------------------------------------------------------------------------
+# Short identifier used in output filenames, figure titles, and GEE export
+# folder names. Use lowercase with hyphens, no spaces (e.g. "qaqortoq-airport").
+site_name: my-site
+
+# ---------------------------------------------------------------------------
 # Area of interest
 # ---------------------------------------------------------------------------
 # Provide GeoJSON files (WGS-84) for the region you want to monitor.

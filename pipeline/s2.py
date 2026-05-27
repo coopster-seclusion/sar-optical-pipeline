@@ -129,6 +129,7 @@ def export_epoch(
         scale=scale,
         crs=crs,
         fileFormat="GeoTIFF",
+        formatOptions={"cloudOptimized": True},
         maxPixels=1e10,
     )
     task.start()
